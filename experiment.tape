@@ -40,13 +40,23 @@ task sentence_aligner < tarball=$out@download_sentence_aligner > out="sentence-a
 task nonbreaking_prefixes calls download
     :: url="http://www.statmt.org/moses/RELEASE-3.0/binaries/linux-64bit/scripts/share/nonbreaking_prefixes/"
     :: downloader="wget"
-    :: downloader_flags="--no-host-directories --no-directories"
+    :: downloader_flags="--recursive --no-parent --no-host-directories --no-directories"
      > out="."
 #
-#
+# Extract and align Europarl test data
 task europarl_test_data calls extract_europarl_test
      < tarball=$out@europarl_tarball
-     < sentence_aligner=$out@sentence_aligner
+     < tools_tarball=$out@download_sentence_aligner
+     < nonbreaking_prefixes=$out@nonbreaking_prefixes
+    :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+    :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     > src
+     > tgt
+#
+# Extract and align Europarl training data
+task europarl_train_data calls extract_europarl_train
+     < tarball=$out@europarl_tarball
+     < tools_tarball=$out@download_sentence_aligner
      < nonbreaking_prefixes=$out@nonbreaking_prefixes
     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
@@ -56,6 +66,8 @@ task europarl_test_data calls extract_europarl_test
 
 plan {
 
-     reach europarl_test_data via (src: fr) * (tgt: en)
+     reach europarl_train_data via (src: *) * (tgt: en)
+
+     reach europarl_test_data  via (src: *) * (tgt: en)
 
 }
