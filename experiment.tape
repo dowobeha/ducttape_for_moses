@@ -213,9 +213,66 @@ task prepare_data calls moses_prepare_data
      :: score_options_flags=@
      < src_in=$src_out@clean_europarl_train
      < tgt_in=$tgt_out@clean_europarl_train
-     > src_out
-     > tgt_out
+     > src_vcb
+     > tgt_vcb
+     > src_vcb_cls
+     > tgt_vcb_cls
+     > src_vcb_cls_cats
+     > tgt_vcb_cls_cats
+     > e2f_snt
+     > f2e_snt
 
+task run_giza calls moses_run_giza
+     < moses_train_modeler=@
+     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     :: external_bin_dir=$moses_external_bin_dir
+     :: alignment_symmetrization_method=@
+     :: reordering_method=@
+     :: max_phrase_length=@
+     :: score_options_flags=@
+     < src_vcb=$src_vcb@prepare_data
+     < tgt_vcb=$tgt_vcb@prepare_data
+     < src_vcb_cls=$src_vcb_cls@prepare_data
+     < tgt_vcb_cls=$tgt_vcb_cls@prepare_data
+     < src_vcb_cls_cats=$src_vcb_cls_cats@prepare_data
+     < tgt_vcb_cls_cats=$tgt_vcb_cls_cats@prepare_data
+     < e2f_snt=$e2f_snt@prepare_data
+     < f2e_snt=$f2e_snt@prepare_data
+     > out
+
+task run_giza_inverse calls moses_run_giza_inverse
+     < moses_train_modeler=@
+     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     :: external_bin_dir=$moses_external_bin_dir
+     :: alignment_symmetrization_method=@
+     :: reordering_method=@
+     :: max_phrase_length=@
+     :: score_options_flags=@
+     < src_vcb=$src_vcb@prepare_data
+     < tgt_vcb=$tgt_vcb@prepare_data
+     < src_vcb_cls=$src_vcb_cls@prepare_data
+     < tgt_vcb_cls=$tgt_vcb_cls@prepare_data
+     < src_vcb_cls_cats=$src_vcb_cls_cats@prepare_data
+     < tgt_vcb_cls_cats=$tgt_vcb_cls_cats@prepare_data
+     < e2f_snt=$e2f_snt@prepare_data
+     < f2e_snt=$f2e_snt@prepare_data
+     > out
+
+task symmetrize_giza calls moses_symmetrize_giza
+     < moses_train_modeler=@
+     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+     :: external_bin_dir=$moses_external_bin_dir
+     :: alignment_symmetrization_method=@
+     :: reordering_method=@
+     :: max_phrase_length=@
+     :: score_options_flags=@
+     < e2f_in=$out@run_giza
+     < f2e_in=$out@run_giza_inverse
+     > alignment_file
+     > alignment_stem
 
 plan {
 
@@ -249,7 +306,9 @@ plan {
 
       reach configure_ems via (src: fr) * (tgt: en)
 
-      reach prepare_data via (src: fr) * (tgt: en)
+      reach symmetrize_giza via (src: fr) * (tgt: en)
+
+#      reach prepare_data via (src: fr) * (tgt: en)
 
 #      reach moses via (src:fr) * (tgt:en)
 

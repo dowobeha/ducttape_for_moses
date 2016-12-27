@@ -39,8 +39,14 @@ func moses_prepare_data
      :: score_options_flags
      < src_in
      < tgt_in
-     > src_out
-     > tgt_out
+     > src_vcb
+     > tgt_vcb
+     > src_vcb_cls
+     > tgt_vcb_cls
+     > src_vcb_cls_cats
+     > tgt_vcb_cls_cats
+     > e2f_snt
+     > f2e_snt
 {
 
 	ln -s ${src_in} in.${src_lang}
@@ -59,9 +65,139 @@ func moses_prepare_data
 			       -corpus in \
 			       -corpus-dir out
 
-	ln out/${src_lang}.vcb ${src_out}
-	ln out/${tgt_lang}.vcb ${tgt_out}
+	ln -s out/${src_lang}.vcb ${src_vcb}
+	ln -s out/${tgt_lang}.vcb ${tgt_vcb}
+	ln -s out/${src_lang}.vcb.classes  ${src_vcb_cls}
+	ln -s out/${tgt_lang}.vcb.classes  ${tgt_vcb_cls}
+	ln -s out/${src_lang}.vcb.classes.cats  ${src_vcb_cls_cats}
+	ln -s out/${tgt_lang}.vcb.classes.cats  ${tgt_vcb_cls_cats}
+	ln -s out/${tgt_lang}-${src_lang}-int-train.snt ${e2f_snt}
+	ln -s out/${src_lang}-${tgt_lang}-int-train.snt ${f2e_snt}
 
+}
+
+func moses_run_giza
+     < moses_train_modeler
+     :: src_lang
+     :: tgt_lang
+     :: external_bin_dir
+     :: alignment_symmetrization_method
+     :: reordering_method
+     :: max_phrase_length
+     :: score_options_flags
+     < src_vcb
+     < tgt_vcb
+     < src_vcb_cls
+     < tgt_vcb_cls
+     < src_vcb_cls_cats
+     < tgt_vcb_cls_cats
+     < e2f_snt
+     < f2e_snt
+     > out
+{
+	mkdir in
+	ln -s ${src_vcb} in/${src_lang}.vcb
+	ln -s ${tgt_vcb} in/${tgt_lang}.vcb
+	ln -s ${src_vcb_cls} in/${src_lang}.vcb.classes
+	ln -s ${tgt_vcb_cls} in/${tgt_lang}.vcb.classes
+	ln -s ${src_vcb_cls_cats} in/${src_lang}.vcb.classes.cats
+	ln -s ${tgt_vcb_cls_cats} in/${tgt_lang}.vcb.classes.cats
+	ln -s ${e2f_snt} in/${tgt_lang}-${src_lang}-int-train.snt
+	ln -s ${f2e_snt} in/${src_lang}-${tgt_lang}-int-train.snt
+
+	${moses_train_modeler}	-mgiza	\
+				-dont-zip	\
+				-first-step 2	\
+				-last-step 2	\
+				-external-bin-dir ${external_bin_dir}	\
+				-f ${src_lang}	\
+				-e ${tgt_lang}	\
+				-alignment ${alignment_symmetrization_method}	\
+				-max-phrase-length ${max_phrase_length}	\
+				-reordering ${reordering_method}	\
+				-score-options "${score_options_flags}"	\
+				-parallel	\
+				-corpus-dir in	\
+				-giza-e2f ${out}	\
+				-direction 2
+}
+
+func moses_run_giza_inverse
+     < moses_train_modeler
+     :: src_lang
+     :: tgt_lang
+     :: external_bin_dir
+     :: alignment_symmetrization_method
+     :: reordering_method
+     :: max_phrase_length
+     :: score_options_flags
+     < src_vcb
+     < tgt_vcb
+     < src_vcb_cls
+     < tgt_vcb_cls
+     < src_vcb_cls_cats
+     < tgt_vcb_cls_cats
+     < e2f_snt
+     < f2e_snt
+     > out
+{
+	mkdir in
+	ln -s ${src_vcb} in/${src_lang}.vcb
+	ln -s ${tgt_vcb} in/${tgt_lang}.vcb
+	ln -s ${src_vcb_cls} in/${src_lang}.vcb.classes
+	ln -s ${tgt_vcb_cls} in/${tgt_lang}.vcb.classes
+	ln -s ${src_vcb_cls_cats} in/${src_lang}.vcb.classes.cats
+	ln -s ${tgt_vcb_cls_cats} in/${tgt_lang}.vcb.classes.cats
+	ln -s ${e2f_snt} in/${tgt_lang}-${src_lang}-int-train.snt
+	ln -s ${f2e_snt} in/${src_lang}-${tgt_lang}-int-train.snt
+
+	${moses_train_modeler}	-mgiza	\
+				-dont-zip	\
+				-first-step 2	\
+				-last-step 2	\
+				-external-bin-dir ${external_bin_dir}	\
+				-f ${src_lang}	\
+				-e ${tgt_lang}	\
+				-alignment ${alignment_symmetrization_method}	\
+				-max-phrase-length ${max_phrase_length}	\
+				-reordering ${reordering_method}	\
+				-score-options "${score_options_flags}"	\
+				-parallel	\
+				-corpus-dir in	\
+				-giza-f2e ${out}	\
+				-direction 1
+}
+
+func moses_symmetrize_giza
+     < moses_train_modeler
+     :: src_lang
+     :: tgt_lang
+     :: external_bin_dir
+     :: alignment_symmetrization_method
+     :: reordering_method
+     :: max_phrase_length
+     :: score_options_flags
+     < e2f_in
+     < f2e_in
+     > alignment_file
+     > alignment_stem
+{
+	${moses_train_modeler}	-dont-zip	\
+				-first-step 3	\
+				-last-step 3	\
+				-external-bin-dir ${external_bin_dir}	\
+				-f ${src_lang}	\
+				-e ${tgt_lang}	\
+				-alignment ${alignment_symmetrization_method}	\
+				-max-phrase-length ${max_phrase_length}	\
+				-reordering ${reordering_method}	\
+				-score-options "${score_options_flags}"	\
+				-parallel	\
+				-giza-e2f ${e2f_in} \
+				-giza-f2e ${f2e_in} \
+				-alignment-file ${alignment_file} \
+				-alignment-stem ${alignment_stem} \
+				-alignment ${alignment_symmetrization_method}
 }
 
 func mkcls
