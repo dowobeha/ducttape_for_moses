@@ -6,18 +6,24 @@ global {
        moses_cleaner=/opt/moses/scripts/training/clean-corpus-n.perl
        moses_external_bin_dir=/opt/moses/external/mgiza-online.v0.7.3c/bin
        moses_train_modeler=/opt/moses/scripts/training/train-model.perl
+
+       # MGIZA scripts and binaries
+       giza2bal=/opt/moses/external/mgiza-online.v0.7.3c/scripts/giza2bal.pl
+       mgiza=/opt/moses/external/mgiza-online.v0.7.3c/bin/mgiza
+       mgiza_merge_alignment_script=/opt/moses/external/mgiza-online.v0.7.3c/scripts/merge_alignment.py
        mkcls=/opt/moses/external/mgiza-online.v0.7.3c/bin/mkcls
+       plain2snt=/opt/moses/external/mgiza-online.v0.7.3c/bin/plain2snt
+       snt2cooc=/opt/moses/external/mgiza-online.v0.7.3c/bin/snt2cooc
+       symal=/opt/moses/external/mgiza-online.v0.7.3c/bin/symal
+
+       mgiza_num_cpus=4
 
        min_sentence_length=1
        max_sentence_length=80
 
-       alignment_symmetrization_method=grow-diag-final-and
        reordering_method=msd-bidirectional-fe
        score_options_flags='--GoodTuring --MinScore 2:0.0001'
        max_phrase_length=5
-
-       mkcls_num_classes=50
-       mkcls_num_optimization_runs=2
 
        europarl_dev=ep-11-04-06-009.txt
        europarl_devtest=ep-11-05-11-006.txt
@@ -201,78 +207,81 @@ task clean_europarl_dev calls moses_clean_corpus
       > lines_retained
       > src_out
       > tgt_out
+
+
+################################################################################
+#                                                                              #
+#                Perform bilingual word alignment using MGIZA                  #
+#                                                                              #
+################################################################################
 #
-task prepare_data calls moses_prepare_data
-     < moses_train_modeler=@
-     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: external_bin_dir=$moses_external_bin_dir
-     :: alignment_symmetrization_method=@
-     :: reordering_method=@
-     :: max_phrase_length=@
-     :: score_options_flags=@
+import giza.tape
+#
+task mgiza_mkcls_src calls mkcls
+     < mkcls=@
+     < in=$src_out@clean_europarl_train
+     > out
+#
+task mgiza_mkcls_tgt calls mkcls
+     < mkcls=@
+     < in=$tgt_out@clean_europarl_train
+     > out
+#
+task mgiza_plain2snt calls plain2snt
+     < plain2snt=@
      < src_in=$src_out@clean_europarl_train
      < tgt_in=$tgt_out@clean_europarl_train
      > src_vcb
+     > src_snt
      > tgt_vcb
-     > src_vcb_cls
-     > tgt_vcb_cls
-     > src_vcb_cls_cats
-     > tgt_vcb_cls_cats
-     > e2f_snt
-     > f2e_snt
-
-task run_giza calls moses_run_giza
-     < moses_train_modeler=@
-     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: external_bin_dir=$moses_external_bin_dir
-     :: alignment_symmetrization_method=@
-     :: reordering_method=@
-     :: max_phrase_length=@
-     :: score_options_flags=@
-     < src_vcb=$src_vcb@prepare_data
-     < tgt_vcb=$tgt_vcb@prepare_data
-     < src_vcb_cls=$src_vcb_cls@prepare_data
-     < tgt_vcb_cls=$tgt_vcb_cls@prepare_data
-     < src_vcb_cls_cats=$src_vcb_cls_cats@prepare_data
-     < tgt_vcb_cls_cats=$tgt_vcb_cls_cats@prepare_data
-     < e2f_snt=$e2f_snt@prepare_data
-     < f2e_snt=$f2e_snt@prepare_data
+     > tgt_snt
+#
+task mgiza_snt2cooc_forward calls snt2cooc
+     < snt2cooc=@
+     < src_vcb=@mgiza_plain2snt
+     < tgt_vcb=@mgiza_plain2snt
+     < integerized_bitext=$src_snt@mgiza_plain2snt
+     > out
+#
+task mgiza_snt2cooc_reverse calls snt2cooc
+     < snt2cooc=@
+     < src_vcb=$tgt_vcb@mgiza_plain2snt
+     < tgt_vcb=$src_vcb@mgiza_plain2snt
+     < integerized_bitext=$tgt_snt@mgiza_plain2snt
+     > out
+#
+task mgiza_forward calls mgiza
+     < mgiza=@
+     < merge_alignment_script=$mgiza_merge_alignment_script
+     < coocurrence_file=$out@mgiza_snt2cooc_forward
+     < src_vcb=@mgiza_plain2snt
+     < src_vcb_classes=$out@mgiza_mkcls_src
+     < tgt_vcb=@mgiza_plain2snt
+     < tgt_vcb_classes=$out@mgiza_mkcls_tgt
+     < integerized_bitext=$src_snt@mgiza_plain2snt
+     :: num_cpus=$mgiza_num_cpus
+     > out
+#
+task mgiza_reverse calls mgiza
+     < mgiza=@
+     < merge_alignment_script=$mgiza_merge_alignment_script
+     < coocurrence_file=$out@mgiza_snt2cooc_reverse
+     < src_vcb=$tgt_vcb@mgiza_plain2snt
+     < src_vcb_classes=$out@mgiza_mkcls_tgt
+     < tgt_vcb=$src_vcb@mgiza_plain2snt
+     < tgt_vcb_classes=$out@mgiza_mkcls_src
+     < integerized_bitext=$tgt_snt@mgiza_plain2snt
+     :: num_cpus=$mgiza_num_cpus
+     > out
+#
+task mgiza_alignments calls mgiza_symmetrize
+     < giza2bal=@
+     < symal=@
+     < mgiza_forward_alignments=$out@mgiza_forward
+     < mgiza_reverse_alignments=$out@mgiza_reverse
      > out
 
-task run_giza_inverse calls moses_run_giza_inverse
-     < moses_train_modeler=@
-     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: external_bin_dir=$moses_external_bin_dir
-     :: alignment_symmetrization_method=@
-     :: reordering_method=@
-     :: max_phrase_length=@
-     :: score_options_flags=@
-     < src_vcb=$src_vcb@prepare_data
-     < tgt_vcb=$tgt_vcb@prepare_data
-     < src_vcb_cls=$src_vcb_cls@prepare_data
-     < tgt_vcb_cls=$tgt_vcb_cls@prepare_data
-     < src_vcb_cls_cats=$src_vcb_cls_cats@prepare_data
-     < tgt_vcb_cls_cats=$tgt_vcb_cls_cats@prepare_data
-     < e2f_snt=$e2f_snt@prepare_data
-     < f2e_snt=$f2e_snt@prepare_data
-     > out
 
-task symmetrize_giza calls moses_symmetrize_giza
-     < moses_train_modeler=@
-     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: external_bin_dir=$moses_external_bin_dir
-     :: alignment_symmetrization_method=@
-     :: reordering_method=@
-     :: max_phrase_length=@
-     :: score_options_flags=@
-     < e2f_in=$out@run_giza
-     < f2e_in=$out@run_giza_inverse
-     > alignment_file
-     > alignment_stem
 
 plan {
 
@@ -300,13 +309,15 @@ plan {
 
 #     reach europarl_monolingual_data via (tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
 
-      reach aligned_europarl via (src: fr) * (tgt: en)
+#      reach aligned_europarl via (src: fr) * (tgt: en)
 
-      reach europarl_monolingual_data via (tgt: en)
+#      reach europarl_monolingual_data via (tgt: en)
 
-      reach configure_ems via (src: fr) * (tgt: en)
+       reach mgiza_alignments via (src: fr) * (tgt: en)
 
-      reach symmetrize_giza via (src: fr) * (tgt: en)
+#      reach configure_ems via (src: fr) * (tgt: en)
+
+#      reach symmetrize_giza via (src: fr) * (tgt: en)
 
 #      reach prepare_data via (src: fr) * (tgt: en)
 
