@@ -85,6 +85,7 @@ func mgiza_symmetrize
      < mgiza_reverse_alignments
      > out
 {
-	${giza2bal} -d ${mgiza_reverse_alignments} -i ${mgiza_forward_alignments} | \
-	${symal} -alignment="grow" -diagonal="yes" -final="yes" -both="yes" > ${out}
+	${giza2bal} -d ${mgiza_forward_alignments} -i ${mgiza_reverse_alignments} | \
+	${symal} -alignment="grow" -diagonal="yes" -final="yes" -both="yes"       | \
+	sed 's,.*{##} ,,' > ${out}
 }

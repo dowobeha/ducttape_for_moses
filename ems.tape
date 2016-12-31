@@ -241,7 +241,7 @@ func ems
 	echo ''                                                                        >> ${config}
 	echo 'moses-src-dir = '"${moses_dir}"                                          >> ${config}
         echo 'moses-script-dir = '"${moses_dir}"'/scripts'                             >> ${config}
-        echo 'external-bin-dir = '"${moses_dir}"'/external'                            >> ${config}
+        echo 'external-bin-dir = '"${moses_dir}"'/external/bin'                        >> ${config}
 	echo ''                                                                        >> ${config}
         echo 'input-extension = '"${src_lang}"                                         >> ${config}
         echo 'output-extension = '"${tgt_lang}"                                        >> ${config}
@@ -290,7 +290,7 @@ func ems
 	echo 'lm-binarizer = '"${moses_dir}"'/bin/build_binary'                        >> ${config}
 	echo 'type = 8'                                                                >> ${config}
 	echo ''                                                                        >> ${config}
-#	echo '[LM:europarl]'                                                           >> ${config}
+	echo '[LM:europarl]'                                                           >> ${config}
 	echo ''                                                                        >> ${config}
 	echo 'raw-corpus = '"${training_monolingual_tgt}"                              >> ${config}
 	echo ''                                                                        >> ${config}
@@ -303,18 +303,20 @@ func ems
 	echo 'lexicalized-reordering = msd-bidirectional-fe'                           >> ${config}
 	echo 'max-phrase-length = 5'                                                   >> ${config}
 	echo 'score-settings = "--GoodTuring --MinScore 2:0.0001"'                     >> ${config}
+	echo 'training-options = "-mgiza -mgiza-cpus 8"'                               >> ${config}
 	echo ''                                                                        >> ${config}
 	echo ''                                                                        >> ${config}
 	echo '[TUNING]'                                                                >> ${config}
 	echo ''                                                                        >> ${config}
 	echo 'tuning-script = '"${moses_dir}"'/scripts/training/mert-moses.pl'         >> ${config}
-	echo 'tuning-settings = "-mertdir '"${moses_dir}/bin"'"'                       >> ${config}
+	echo 'tuning-settings = "--mertdir '"${moses_dir}/bin"' --maximum-iterations=3"'                       >> ${config}
 	echo ''                                                                        >> ${config}
 	echo 'raw-input = '"${tuning_src}"                                             >> ${config}
 	echo 'raw-reference = '"${tuning_tgt}"                                         >> ${config}
 	echo 'nbest = 100'                                                             >> ${config}
 	echo 'filter-settings = ""'                                                    >> ${config}
 	echo 'decoder-settings = "-threads '"${decoder_cores}"'"'                      >> ${config}
+#	echo 'maximum-iterations = 3'                                                  >> ${config}
 	echo ''                                                                        >> ${config}
 	echo ''                                                                        >> ${config}
 #	echo '[TRUECASER]'                                                             >> ${config}
@@ -336,9 +338,9 @@ func ems
 	echo 'multi-bleu = "'"${moses_dir}"'/scripts/generic/multi-bleu.perl -lc"'     >> ${config}
 	echo 'multi-bleu-c = "'"${moses_dir}"'/scripts/generic/multi-bleu.perl"'       >> ${config}
 	echo ''                                                                        >> ${config}
-	echo 'analysis = '"${moses_dir}"'/scripts/ems/support/analysis.perl'           >> ${config}
-	echo 'analyze-coverage = yes'                                                  >> ${config}
-	echo 'report-segmentation = yes'                                               >> ${config}
+#	echo 'analysis = '"${moses_dir}"'/scripts/ems/support/analysis.perl'           >> ${config}
+#	echo 'analyze-coverage = yes'                                                  >> ${config}
+#	echo 'report-segmentation = yes'                                               >> ${config}
 	echo ''                                                                        >> ${config}
 	echo '[EVALUATION:newstest2011]'                                               >> ${config}
 	echo ''                                                                        >> ${config}

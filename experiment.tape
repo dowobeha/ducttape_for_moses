@@ -7,6 +7,25 @@ global {
        moses_external_bin_dir=/opt/moses/external/mgiza-online.v0.7.3c/bin
        moses_train_modeler=/opt/moses/scripts/training/train-model.perl
 
+       lmplz=/opt/moses/bin/lmplz
+       build_binary=/opt/moses/bin/build_binary
+
+       moses=/opt/moses/bin/moses
+       moses_bin_dir=/opt/moses/bin
+       moses_consolidate=/opt/moses/bin/consolidate
+       moses_extract=/opt/moses/bin/extract
+       moses_extract_parallel_script=/opt/moses/scripts/generic/extract-parallel.perl
+       moses_get_lexical_script=/opt/moses/scripts/training/get-lexical.perl
+       moses_filter_model_script=/opt/moses/scripts/training/filter-model-given-input.pl
+       moses_lexical_reordering_score=/opt/moses/bin/lexical-reordering-score
+       moses_mert_script=/opt/moses/scripts/training/mert-moses.pl
+       moses_multibleu_script=/opt/moses/scripts/generic/multi-bleu.perl
+       moses_phrase_table_binarizer=/opt/moses/bin/CreateOnDiskPt
+       moses_score=/opt/moses/bin/score
+       moses_score_parallel_script=/opt/moses/scripts/generic/score-parallel.perl
+       moses_scripts_dir=/opt/moses/scripts
+       moses_substitute_weights_script=/opt/moses/scripts/ems/support/substitute-weights.perl
+
        # MGIZA scripts and binaries
        giza2bal=/opt/moses/external/mgiza-online.v0.7.3c/scripts/giza2bal.pl
        mgiza=/opt/moses/external/mgiza-online.v0.7.3c/bin/mgiza
@@ -17,6 +36,14 @@ global {
        symal=/opt/moses/external/mgiza-online.v0.7.3c/bin/symal
 
        mgiza_num_cpus=4
+       moses_extract_num_cores=4
+       moses_decode_threads=8
+
+       sort_buffer_size="20G"
+
+       split_exec="/usr/bin/split"
+       sort_exec="/usr/bin/sort"
+       sort_compress="/bin/gzip"
 
        min_sentence_length=1
        max_sentence_length=80
@@ -24,6 +51,9 @@ global {
        reordering_method=msd-bidirectional-fe
        score_options_flags='--GoodTuring --MinScore 2:0.0001'
        max_phrase_length=5
+       max_ngram_order=5
+       moses_phrase_table_binarizer_flags="1 1 4 100 2"
+       moses_mert_max_iterations=4
 
        europarl_dev=ep-11-04-06-009.txt
        europarl_devtest=ep-11-05-11-006.txt
@@ -113,6 +143,30 @@ task trim_train
 	head -n ${n} < ${src_in} > ${src_out}
 	head -n ${n} < ${tgt_in} > ${tgt_out}
 }
+#
+task trim_dev
+     :: n=100
+     < src_in=$dev_src@aligned_europarl
+     < tgt_in=$dev_tgt@aligned_europarl
+     > src_out
+     > tgt_out
+{
+	head -n ${n} < ${src_in} > ${src_out}
+	head -n ${n} < ${tgt_in} > ${tgt_out}
+}
+#
+task trim_devtest
+     :: n=100
+     < src_in=$devtest_src@aligned_europarl
+     < tgt_in=$devtest_tgt@aligned_europarl
+     > src_out
+     > tgt_out
+{
+	head -n ${n} < ${src_in} > ${src_out}
+	head -n ${n} < ${tgt_in} > ${tgt_out}
+}
+
+
 
 import ems.tape
 #
@@ -124,14 +178,14 @@ task configure_ems calls ems
      :: external_bin_dir=/opt/moses/external
      :: max_sentence_length=80
      :: ngram_order=5
-     :: decoder_cores=4
-     < training_src=$train_src@aligned_europarl
-     < training_tgt=$train_tgt@aligned_europarl
-     < training_monolingual_tgt=$tgt@europarl_monolingual_data
-     < tuning_src=$dev_src@aligned_europarl
-     < tuning_tgt=$dev_tgt@aligned_europarl
-     < test_src=$devtest_src@aligned_europarl
-     < test_tgt=$devtest_tgt@aligned_europarl
+     :: decoder_cores=8
+     < training_src=$src_out@trim_train
+     < training_tgt=$tgt_out@trim_train
+     < training_monolingual_tgt=$tgt_out@trim_train
+     < tuning_src=$src_out@trim_dev
+     < tuning_tgt=$tgt_out@trim_dev
+     < test_src=$src_out@trim_devtest
+     < test_tgt=$tgt_out@trim_devtest
      > config
 #
 #      
@@ -150,25 +204,25 @@ task tokenize_train_tgt calls moses_tokenize
 task tokenize_dev_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$dev_src@aligned_europarl
+      < in=$src_out@trim_dev
       > out
 #
 task tokenize_dev_tgt calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$dev_tgt@aligned_europarl
+      < in=$tgt_out@trim_dev
       > out
 #      
 task tokenize_devtest_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$devtest_src@aligned_europarl
+      < in=$src_out@trim_devtest
       > out
 #
 task tokenize_devtest_tgt calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$devtest_tgt@aligned_europarl
+      < in=$tgt_out@trim_devtest
       > out
 #
 #      
@@ -281,6 +335,144 @@ task mgiza_alignments calls mgiza_symmetrize
      < mgiza_reverse_alignments=$out@mgiza_reverse
      > out
 
+import moses.tape
+#
+task moses_phrase_pairs calls moses_extract_phrases
+     < moses_extract=@
+     < moses_extract_parallel_script=@
+     < src_corpus=$src_out@clean_europarl_train
+     < tgt_corpus=$tgt_out@clean_europarl_train
+     < alignment_file=$out@mgiza_alignments
+     :: num_cores=$moses_extract_num_cores
+     :: sort_buffer_size=@
+     < split_exec=@
+     < sort_exec=@
+     < sort_compress=@
+     :: max_phrase_length=@
+     > phrases_forward_gz
+     > phrases_reverse_gz
+     > phrases_ordering_gz
+#
+task moses_lexical_translation_table calls moses_extract_lexical_translation_table
+     < moses_get_lexical_script=@
+     < src_corpus=$src_out@clean_europarl_train
+     < tgt_corpus=$tgt_out@clean_europarl_train
+     < alignment_file=$out@mgiza_alignments
+     > forward
+     > reverse
+#
+task moses_score_phrases_forward calls moses_score_phrases_forward
+     < moses_score=@
+     < moses_score_parallel_script=@
+     < phrases_forward_gz=$phrases_forward_gz@moses_phrase_pairs
+     < lex_tt_forward=$forward@moses_lexical_translation_table
+     :: num_cores=$moses_extract_num_cores
+     :: sort_buffer_size=@
+     < sort_exec=@
+     < sort_compress=@
+     > out_gz
+     > count_of_counts
+#
+task moses_score_phrases_reverse calls moses_score_phrases_reverse
+     < moses_score=@
+     < moses_score_parallel_script=@
+     < phrases_reverse_gz=$phrases_reverse_gz@moses_phrase_pairs
+     < lex_tt_reverse=$reverse@moses_lexical_translation_table
+     :: num_cores=$moses_extract_num_cores
+     :: sort_buffer_size=@
+     < sort_exec=@
+     < sort_compress=@
+     > out_gz
+#
+task moses_phrase_table calls moses_consolidate_translation_table
+     < moses_consolidate=@
+     < phrase_table_forward_gz=$out_gz@moses_score_phrases_forward
+     < phrase_table_reverse_gz=$out_gz@moses_score_phrases_reverse
+     < phrase_table_count_of_counts=$count_of_counts@moses_score_phrases_forward
+     > out_gz
+#
+task moses_lexical_reordering_table calls moses_lexical_reordering_table
+     < moses_lexical_reordering_score=@
+     < phrases_ordering_gz=$phrases_ordering_gz@moses_phrase_pairs
+     > out_gz
+#
+task moses_ini_unfiltered_untuned calls moses_ini_unfiltered_untuned
+     < phrase_table_gz=$out_gz@moses_phrase_table
+     < lexicalized_reordering_model_gz=$out_gz@moses_lexical_reordering_table
+     < binarized_lm=$out@kenlm_binarized
+     :: max_ngram_order=@
+     > ini
+#
+task moses_tuning_prepare calls moses_filter_models
+     < moses_filter_model_script=@
+     < src_in=$src_out@clean_europarl_dev
+     < unfiltered_ini=$ini@moses_ini_unfiltered_untuned
+     < moses_phrase_table_binarizer=@
+     :: moses_phrase_table_binarizer_flags=@
+     > ini
+#
+task moses_tuning_mert calls moses_mert
+     < moses_mert_script=@
+     < moses=@
+     < src_in=$src_out@clean_europarl_dev
+     < tgt_in=$tgt_out@clean_europarl_dev
+     < moses_untuned_ini=$ini@moses_tuning_prepare
+     :: nbest_size=100
+     :: decoder_flags="-threads 8 -v 0 "
+     :: moses_scripts_dir=@
+     :: moses_bin_dir=@
+     :: moses_mert_max_iterations=@
+     > moses_tuned_ini
+#
+task moses_tuning_weights calls moses_mert_substitute_weights
+     < moses_substitute_weights_script=@
+     < untuned_ini=$ini@moses_ini_unfiltered_untuned
+     < tuned_ini=$moses_tuned_ini@moses_tuning_mert
+     > out
+#
+task moses_devtest_prepare calls moses_filter_models
+     < moses_filter_model_script=@
+     < src_in=$src_out@trim_devtest
+     < unfiltered_ini=$ini@moses_ini_unfiltered_untuned
+     < moses_phrase_table_binarizer=@
+     :: moses_phrase_table_binarizer_flags=@
+     > ini
+#
+task moses_devtest_ini calls moses_mert_substitute_weights
+     < moses_substitute_weights_script=@
+     < untuned_ini=$ini@moses_devtest_prepare
+     < tuned_ini=$out@moses_tuning_weights
+     > out
+#
+task moses_devtest_decode calls moses_decode
+     < moses=@
+     < src_in=$src_out@trim_devtest
+     < ini=$out@moses_devtest_ini
+     :: moses_decode_threads=@
+     > tgt_out
+#
+task moses_devtest_multibleu calls moses_multibleu
+     < moses_multibleu_script=@
+     < ref_in=$tgt_out@trim_devtest
+     < tgt_in=$tgt_out@moses_devtest_decode
+     > bleu_cased
+     > bleu_uncased
+
+import kenlm.tape
+#
+task kenlm calls lmplz
+     < lmplz=@
+     < corpus=$tgt_out@trim_train
+     :: max_ngram_order=@
+     > arpa_file
+     :: max_sorting_memory="20%"
+     :: tmp_dir="."
+#
+task kenlm_binarized calls build_binary
+     < build_binary=@
+     < arpa_file=@kenlm
+     > out
+
 
 
 plan {
@@ -313,9 +505,19 @@ plan {
 
 #      reach europarl_monolingual_data via (tgt: en)
 
-       reach mgiza_alignments via (src: fr) * (tgt: en)
+#       reach mgiza_alignments via (src: fr) * (tgt: en)
+	reach moses_phrase_pairs via (src: fr) * (tgt: en)
+	reach moses_lexical_translation_table via (src: fr) * (tgt: en)
+	reach moses_score_phrases_forward via (src: fr) * (tgt: en)
+	reach moses_score_phrases_reverse via (src: fr) * (tgt: en)
+	reach moses_phrase_table via (src: fr) * (tgt: en)
+	reach moses_lexical_reordering_table via (src: fr) * (tgt: en)
 
-#      reach configure_ems via (src: fr) * (tgt: en)
+	reach moses_tuning_weights via (src: fr) * (tgt: en)
+	reach moses_devtest_ini via (src: fr) * (tgt: en)
+	reach moses_devtest_multibleu via (src: fr) * (tgt: en)
+	 
+       reach configure_ems via (src: fr) * (tgt: en)
 
 #      reach symmetrize_giza via (src: fr) * (tgt: en)
 
