@@ -68,45 +68,40 @@ import util.tape
 # To get Europarl corpus, uncomment exactly one of the following:
 #
 # Either 1) Download Europarl corpus
-task europarl_tarball calls download 
-    :: url="http://www.statmt.org/europarl/v8/europarl.tgz" 
-    :: downloader="wget"
-    :: downloader_flags=""
-     > out="europarl.tgz"
+#task europarl_tarball calls download
+#    :: url="http://www.statmt.org/europarl/v8/europarl.tgz"
+#    :: downloader="wget"
+#    :: downloader_flags=""
+#     > out="europarl.tgz"
 #
 #     or 2) Symlink to an existing Europarl tarball on local disk
 #task europarl_tarball calls symlink  < in="/path/to/europarl.tgz" > out="europarl.tgz"
 #
 #     or 3) Copy an existing Europarl tarball on local disk
 #task europarl_tarball calls copy  < in="/path/to/europarl.tgz" > out="europarl.tgz"
-
+task europarl_tarball calls symlink < in="/nas/data/parallel/training/tarball/europarl.v8.tgz" > out="europarl.tgz"
 
 import europarl.tape
 #
 # Download Europarl sentence aligner 
-task download_sentence_aligner calls download 
+task europarl_tarball_sentence_aligner calls download
     :: url="http://www.statmt.org/europarl/v7/tools.tgz"
     :: downloader="wget"
     :: downloader_flags=""
      > out="tools.tgz"
 #
-# Extract Europarl sentence aligner
-task sentence_aligner < tarball=$out@download_sentence_aligner > out="sentence-align-corpus.perl" {
-     tar xfvz ${tarball} sentence-align-corpus.perl
-}
-#
 # Download nonbreaking prefixes
-task nonbreaking_prefixes calls download
+task moses_nonbreaking_prefixes calls download
     :: url="http://www.statmt.org/moses/RELEASE-3.0/binaries/linux-64bit/scripts/share/nonbreaking_prefixes/"
     :: downloader="wget"
     :: downloader_flags="--recursive --no-parent --no-host-directories --no-directories"
      > out="."
 #
 # Extract and align Europarl training, dev, devtest, and test data
-task aligned_europarl calls extract_europarl
+task europarl_sentence_aligned calls extract_europarl
      < tarball=$out@europarl_tarball
-     < tools_tarball=$out@download_sentence_aligner
-     < nonbreaking_prefixes=$out@nonbreaking_prefixes
+     < tools_tarball=$out@europarl_tarball_sentence_aligner
+     < nonbreaking_prefixes=$out@moses_nonbreaking_prefixes
     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: dev=$europarl_dev
@@ -124,8 +119,8 @@ task aligned_europarl calls extract_europarl
 # Extract Europarl monolingual training data
 task europarl_monolingual_data calls extract_europarl_monolingual
      < tarball=$out@europarl_tarball
-     < tools_tarball=$out@download_sentence_aligner
-     < nonbreaking_prefixes=$out@nonbreaking_prefixes
+     < tools_tarball=$out@europarl_tarball_sentence_aligner
+     < nonbreaking_prefixes=$out@moses_nonbreaking_prefixes
     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: dev=$europarl_dev
     :: devtest=$europarl_devtest
@@ -133,10 +128,10 @@ task europarl_monolingual_data calls extract_europarl_monolingual
      > tgt
 
 
-task trim_train
+task europarl_train_trim
      :: n=10000
-     < src_in=$train_src@aligned_europarl
-     < tgt_in=$train_tgt@aligned_europarl
+     < src_in=$train_src@europarl_sentence_aligned
+     < tgt_in=$train_tgt@europarl_sentence_aligned
      > src_out
      > tgt_out
 {
@@ -144,10 +139,10 @@ task trim_train
 	head -n ${n} < ${tgt_in} > ${tgt_out}
 }
 #
-task trim_dev
+task europarl_dev_trim
      :: n=100
-     < src_in=$dev_src@aligned_europarl
-     < tgt_in=$dev_tgt@aligned_europarl
+     < src_in=$dev_src@europarl_sentence_aligned
+     < tgt_in=$dev_tgt@europarl_sentence_aligned
      > src_out
      > tgt_out
 {
@@ -155,10 +150,10 @@ task trim_dev
 	head -n ${n} < ${tgt_in} > ${tgt_out}
 }
 #
-task trim_devtest
+task europarl_devtest_trim
      :: n=100
-     < src_in=$devtest_src@aligned_europarl
-     < tgt_in=$devtest_tgt@aligned_europarl
+     < src_in=$devtest_src@europarl_sentence_aligned
+     < tgt_in=$devtest_tgt@europarl_sentence_aligned
      > src_out
      > tgt_out
 {
@@ -171,7 +166,7 @@ task trim_devtest
 import ems.tape
 #
 # Train Moses using EMS
-task configure_ems calls ems
+task moses_ems calls ems
      :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
      :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
      :: moses_dir=/opt/moses
@@ -179,85 +174,73 @@ task configure_ems calls ems
      :: max_sentence_length=80
      :: ngram_order=5
      :: decoder_cores=8
-     < training_src=$src_out@trim_train
-     < training_tgt=$tgt_out@trim_train
-     < training_monolingual_tgt=$tgt_out@trim_train
-     < tuning_src=$src_out@trim_dev
-     < tuning_tgt=$tgt_out@trim_dev
-     < test_src=$src_out@trim_devtest
-     < test_tgt=$tgt_out@trim_devtest
+     < training_src=$src_out@europarl_train_trim
+     < training_tgt=$tgt_out@europarl_train_trim
+     < training_monolingual_tgt=$tgt_out@europarl_train_trim
+     < tuning_src=$src_out@europarl_dev_trim
+     < tuning_tgt=$tgt_out@europarl_dev_trim
+     < test_src=$src_out@europarl_devtest_trim
+     < test_tgt=$tgt_out@europarl_devtest_trim
      > config
 #
 #      
-task tokenize_train_src calls moses_tokenize
+task europarl_train_tokenize_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$src_out@trim_train
+      < in=$src_out@europarl_train_trim
       > out
 #
-task tokenize_train_tgt calls moses_tokenize
+task europarl_train_tokenize_tgt calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$tgt_out@trim_train
+      < in=$tgt_out@europarl_train_trim
       > out
 #      
-task tokenize_dev_src calls moses_tokenize
+task europarl_dev_tokenize_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$src_out@trim_dev
+      < in=$src_out@europarl_dev_trim
       > out
 #
-task tokenize_dev_tgt calls moses_tokenize
+task europarl_dev_tokenize_tgt calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$tgt_out@trim_dev
+      < in=$tgt_out@europarl_dev_trim
       > out
 #      
-task tokenize_devtest_src calls moses_tokenize
+task europarl_devtest_tokenize_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$src_out@trim_devtest
+      < in=$src_out@europarl_devtest_trim
       > out
 #
-task tokenize_devtest_tgt calls moses_tokenize
+task europarl_devtest_tokenize_tgt calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$tgt_out@trim_devtest
+      < in=$tgt_out@europarl_devtest_trim
       > out
 #
 #      
-task tokenize_test_src calls moses_tokenize
+task europarl_test_tokenize_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$test_src@aligned_europarl
+      < in=$test_src@europarl_sentence_aligned
       > out
 #
-task tokenize_test_tgt calls moses_tokenize
+task europarl_test_tokenize_tgt calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
-      < in=$test_tgt@aligned_europarl
+      < in=$test_tgt@europarl_sentence_aligned
       > out
 #
-task clean_europarl_train calls moses_clean_corpus
+task europarl_train_clean calls moses_clean_corpus
      :: min_sentence_length=@
      :: max_sentence_length=@
       < moses_cleaner=@
      :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
      :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-      < src_in=$out@tokenize_train_src
-      < tgt_in=$out@tokenize_train_tgt
-      > lines_retained
-      > src_out
-      > tgt_out
-#
-task clean_europarl_dev calls moses_clean_corpus
-     :: min_sentence_length=@
-     :: max_sentence_length=@
-      < moses_cleaner=@
-     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-      < src_in=$out@tokenize_dev_src
-      < tgt_in=$out@tokenize_dev_tgt
+      < src_in=$out@europarl_train_tokenize_src
+      < tgt_in=$out@europarl_train_tokenize_tgt
       > lines_retained
       > src_out
       > tgt_out
@@ -273,18 +256,18 @@ import giza.tape
 #
 task mgiza_mkcls_src calls mkcls
      < mkcls=@
-     < in=$src_out@clean_europarl_train
+     < in=$src_out@europarl_train_clean
      > out
 #
 task mgiza_mkcls_tgt calls mkcls
      < mkcls=@
-     < in=$tgt_out@clean_europarl_train
+     < in=$tgt_out@europarl_train_clean
      > out
 #
 task mgiza_plain2snt calls plain2snt
      < plain2snt=@
-     < src_in=$src_out@clean_europarl_train
-     < tgt_in=$tgt_out@clean_europarl_train
+     < src_in=$src_out@europarl_train_clean
+     < tgt_in=$tgt_out@europarl_train_clean
      > src_vcb
      > src_snt
      > tgt_vcb
@@ -340,8 +323,8 @@ import moses.tape
 task moses_phrase_pairs calls moses_extract_phrases
      < moses_extract=@
      < moses_extract_parallel_script=@
-     < src_corpus=$src_out@clean_europarl_train
-     < tgt_corpus=$tgt_out@clean_europarl_train
+     < src_corpus=$src_out@europarl_train_clean
+     < tgt_corpus=$tgt_out@europarl_train_clean
      < alignment_file=$out@mgiza_alignments
      :: num_cores=$moses_extract_num_cores
      :: sort_buffer_size=@
@@ -355,8 +338,8 @@ task moses_phrase_pairs calls moses_extract_phrases
 #
 task moses_lexical_translation_table calls moses_extract_lexical_translation_table
      < moses_get_lexical_script=@
-     < src_corpus=$src_out@clean_europarl_train
-     < tgt_corpus=$tgt_out@clean_europarl_train
+     < src_corpus=$src_out@europarl_train_clean
+     < tgt_corpus=$tgt_out@europarl_train_clean
      < alignment_file=$out@mgiza_alignments
      > forward
      > reverse
@@ -405,7 +388,7 @@ task moses_ini_unfiltered_untuned calls moses_ini_unfiltered_untuned
 #
 task moses_tuning_prepare calls moses_filter_models
      < moses_filter_model_script=@
-     < src_in=$src_out@clean_europarl_dev
+     < src_in=$out@europarl_dev_tokenize_src
      < unfiltered_ini=$ini@moses_ini_unfiltered_untuned
      < moses_phrase_table_binarizer=@
      :: moses_phrase_table_binarizer_flags=@
@@ -414,11 +397,12 @@ task moses_tuning_prepare calls moses_filter_models
 task moses_tuning_mert calls moses_mert
      < moses_mert_script=@
      < moses=@
-     < src_in=$src_out@clean_europarl_dev
-     < tgt_in=$tgt_out@clean_europarl_dev
+     < src_in=$out@europarl_dev_tokenize_src
+     < tgt_in=$out@europarl_dev_tokenize_tgt
      < moses_untuned_ini=$ini@moses_tuning_prepare
      :: nbest_size=100
-     :: decoder_flags="-threads 8 -v 0 "
+     :: moses_decode_threads=@
+     :: decoder_flags="-v 0"
      :: moses_scripts_dir=@
      :: moses_bin_dir=@
      :: moses_mert_max_iterations=@
@@ -432,7 +416,7 @@ task moses_tuning_weights calls moses_mert_substitute_weights
 #
 task moses_devtest_prepare calls moses_filter_models
      < moses_filter_model_script=@
-     < src_in=$src_out@trim_devtest
+     < src_in=$out@europarl_devtest_tokenize_src
      < unfiltered_ini=$ini@moses_ini_unfiltered_untuned
      < moses_phrase_table_binarizer=@
      :: moses_phrase_table_binarizer_flags=@
@@ -446,14 +430,14 @@ task moses_devtest_ini calls moses_mert_substitute_weights
 #
 task moses_devtest_decode calls moses_decode
      < moses=@
-     < src_in=$src_out@trim_devtest
+     < src_in=$out@europarl_devtest_tokenize_src
      < ini=$out@moses_devtest_ini
      :: moses_decode_threads=@
      > tgt_out
 #
 task moses_devtest_multibleu calls moses_multibleu
      < moses_multibleu_script=@
-     < ref_in=$tgt_out@trim_devtest
+     < ref_in=$out@europarl_devtest_tokenize_tgt
      < tgt_in=$tgt_out@moses_devtest_decode
      > bleu_cased
      > bleu_uncased
@@ -462,7 +446,7 @@ import kenlm.tape
 #
 task kenlm calls lmplz
      < lmplz=@
-     < corpus=$tgt_out@trim_train
+     < corpus=$out@europarl_train_tokenize_tgt
      :: max_ngram_order=@
      > arpa_file
      :: max_sorting_memory="20%"
@@ -477,47 +461,47 @@ task kenlm_binarized calls build_binary
 
 plan {
 
-#     reach aligned_europarl via (src:    cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: bg)
-#     reach aligned_europarl via (src: bg    da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: cs)
-#     reach aligned_europarl via (src: bg cs    de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: da)
-#     reach aligned_europarl via (src: bg cs da    el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: de)
-#     reach aligned_europarl via (src: bg cs da de    en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: el)
-#     reach aligned_europarl via (src: bg cs da de el    es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: en)
-#     reach aligned_europarl via (src: bg cs da de el en    et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: es)
-#     reach aligned_europarl via (src: bg cs da de el en es    fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: et)
-#     reach aligned_europarl via (src: bg cs da de el en es et    fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: fi)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi    hu it lt lv nl pl pt ro sk sl sv) * (tgt: fr)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr    it lt lv nl pl pt ro sk sl sv) * (tgt: hu)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu    lt lv nl pl pt ro sk sl sv) * (tgt: it)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it    lv nl pl pt ro sk sl sv) * (tgt: lt)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt    nl pl pt ro sk sl sv) * (tgt: lv)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv    pl pt ro sk sl sv) * (tgt: nl)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv nl    pt ro sk sl sv) * (tgt: pl)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv nl pl    ro sk sl sv) * (tgt: pt)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt    sk sl sv) * (tgt: ro)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro    sl sv) * (tgt: sk)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk    sv) * (tgt: sl)
-#     reach aligned_europarl via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl   ) * (tgt: sv)
+#     reach europarl_sentence_aligned via (src:    cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: bg)
+#     reach europarl_sentence_aligned via (src: bg    da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: cs)
+#     reach europarl_sentence_aligned via (src: bg cs    de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: da)
+#     reach europarl_sentence_aligned via (src: bg cs da    el en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: de)
+#     reach europarl_sentence_aligned via (src: bg cs da de    en es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: el)
+#     reach europarl_sentence_aligned via (src: bg cs da de el    es et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: en)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en    et fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: es)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es    fi fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: et)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et    fr hu it lt lv nl pl pt ro sk sl sv) * (tgt: fi)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi    hu it lt lv nl pl pt ro sk sl sv) * (tgt: fr)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr    it lt lv nl pl pt ro sk sl sv) * (tgt: hu)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu    lt lv nl pl pt ro sk sl sv) * (tgt: it)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it    lv nl pl pt ro sk sl sv) * (tgt: lt)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt    nl pl pt ro sk sl sv) * (tgt: lv)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv    pl pt ro sk sl sv) * (tgt: nl)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv nl    pt ro sk sl sv) * (tgt: pl)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv nl pl    ro sk sl sv) * (tgt: pt)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt    sk sl sv) * (tgt: ro)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro    sl sv) * (tgt: sk)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk    sv) * (tgt: sl)
+#     reach europarl_sentence_aligned via (src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl   ) * (tgt: sv)
 
 #     reach europarl_monolingual_data via (tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
 
-#      reach aligned_europarl via (src: fr) * (tgt: en)
+#      reach europarl_sentence_aligned via (src: fr) * (tgt: en)
 
 #      reach europarl_monolingual_data via (tgt: en)
 
 #       reach mgiza_alignments via (src: fr) * (tgt: en)
-	reach moses_phrase_pairs via (src: fr) * (tgt: en)
-	reach moses_lexical_translation_table via (src: fr) * (tgt: en)
-	reach moses_score_phrases_forward via (src: fr) * (tgt: en)
-	reach moses_score_phrases_reverse via (src: fr) * (tgt: en)
-	reach moses_phrase_table via (src: fr) * (tgt: en)
-	reach moses_lexical_reordering_table via (src: fr) * (tgt: en)
-
-	reach moses_tuning_weights via (src: fr) * (tgt: en)
-	reach moses_devtest_ini via (src: fr) * (tgt: en)
+#	reach moses_phrase_pairs via (src: fr) * (tgt: en)
+#	reach moses_lexical_translation_table via (src: fr) * (tgt: en)
+#	reach moses_score_phrases_forward via (src: fr) * (tgt: en)
+#	reach moses_score_phrases_reverse via (src: fr) * (tgt: en)
+#	reach moses_phrase_table via (src: fr) * (tgt: en)
+#	reach moses_lexical_reordering_table via (src: fr) * (tgt: en)
+#
+#	reach moses_tuning_weights via (src: fr) * (tgt: en)
+#	reach moses_devtest_ini via (src: fr) * (tgt: en)
 	reach moses_devtest_multibleu via (src: fr) * (tgt: en)
 	 
-       reach configure_ems via (src: fr) * (tgt: en)
+#       reach configure_ems via (src: fr) * (tgt: en)
 
 #      reach symmetrize_giza via (src: fr) * (tgt: en)
 

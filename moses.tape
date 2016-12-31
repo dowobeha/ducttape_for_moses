@@ -293,6 +293,7 @@ func moses_mert
      < tgt_in
      < moses_untuned_ini
      :: nbest_size
+     :: moses_decode_threads
      :: decoder_flags
      :: moses_scripts_dir
      :: moses_bin_dir
@@ -307,7 +308,7 @@ func moses_mert
 			     ${moses_untuned_ini}    \
 			     --nbest ${nbest_size}              \
 			     --working-dir $(pwd)/mert          \
-			     --decoder-flags "${decoder_flags}" \
+			     --decoder-flags "${decoder_flags} -threads ${moses_decode_threads}" \
 			     --rootdir ${moses_scripts_dir}     \
 			     --mertdir ${moses_bin_dir}         \
 			     --no-filter-phrase-table           \
