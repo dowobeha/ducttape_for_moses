@@ -512,8 +512,8 @@ plan {
 #
 #	reach moses_tuning_weights via (src: fr) * (tgt: en)
 #	reach moses_devtest_ini via (src: fr) * (tgt: en)
-#	reach moses_devtest_multibleu via (src: fr) * (tgt: en)
-	reach kenlm via (tgt: fr) * (MonolingualSize: 100)
+	reach moses_devtest_multibleu via (src: fr) * (tgt: en) * (MonolingualSize: all) * (TrainingSize: 10k) * (DevSize: 100) * (DevtestSize: 100)
+#	reach kenlm via (tgt: fr) * (MonolingualSize: 100)
 #       reach configure_ems via (src: fr) * (tgt: en)
 
 #      reach symmetrize_giza via (src: fr) * (tgt: en)
