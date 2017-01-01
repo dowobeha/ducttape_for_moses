@@ -1,3 +1,41 @@
+func moses_tokenize
+     :: language
+      < moses_tokenizer
+      < in
+      > out
+{
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
+	${moses_tokenizer} -a -l ${language} < ${in} > ${out}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
+}
+
+func moses_clean_corpus
+     :: min_sentence_length
+     :: max_sentence_length
+      < moses_cleaner
+     :: src_lang
+     :: tgt_lang
+      < src_in
+      < tgt_in
+      > lines_retained
+      > src_out
+      > tgt_out
+{
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
+	ln -s ${src_in} in.${src_lang}
+	ln -s ${tgt_in} in.${tgt_lang}
+
+	${moses_cleaner} in ${src_lang} ${tgt_lang} out ${min_sentence_length} ${max_sentence_length} ${lines_retained}
+
+	ln out.${src_lang} ${src_out}
+	ln out.${tgt_lang} ${tgt_out}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
+}
+
 
 func moses_extract_phrases
      < moses_extract
