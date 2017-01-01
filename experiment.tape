@@ -133,7 +133,6 @@ task europarl_monolingual_trim
      < tgt_in=$tgt@europarl_monolingual_data
      > tgt_out
 {
-	head ${n} < ${src_in} > ${src_out}
 	head ${n} < ${tgt_in} > ${tgt_out}
 }
 #
