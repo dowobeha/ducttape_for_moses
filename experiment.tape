@@ -53,7 +53,8 @@ global {
        max_phrase_length=5
        max_ngram_order=5
        moses_phrase_table_binarizer_flags="1 1 4 100 2"
-       moses_mert_max_iterations=4
+       moses_mert_max_iterations=(TuningMaxIterations: 1..25)
+       moses_mert_tuning_replicate=(TuningReplicate: 1..10)
 
        europarl_dev=ep-11-04-06-009.txt
        europarl_devtest=ep-11-05-11-006.txt
@@ -133,7 +134,9 @@ task europarl_monolingual_trim
      < tgt_in=$tgt@europarl_monolingual_data
      > tgt_out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 	head ${n} < ${tgt_in} > ${tgt_out}
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 #
 task europarl_train_trim
@@ -143,8 +146,10 @@ task europarl_train_trim
      > src_out
      > tgt_out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 	head ${n} < ${src_in} > ${src_out}
 	head ${n} < ${tgt_in} > ${tgt_out}
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 #
 task europarl_dev_trim
@@ -154,8 +159,10 @@ task europarl_dev_trim
      > src_out
      > tgt_out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 	head ${n} < ${src_in} > ${src_out}
 	head ${n} < ${tgt_in} > ${tgt_out}
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 #
 task europarl_devtest_trim
@@ -165,31 +172,33 @@ task europarl_devtest_trim
      > src_out
      > tgt_out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 	head ${n} < ${src_in} > ${src_out}
 	head ${n} < ${tgt_in} > ${tgt_out}
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 
 
-import ems.tape
+#import ems.tape
 #
 # Train Moses using EMS
-task moses_ems calls ems
-     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
-     :: moses_dir=/opt/moses
-     :: external_bin_dir=/opt/moses/external
-     :: max_sentence_length=80
-     :: ngram_order=5
-     :: decoder_cores=8
-     < training_src=$src_out@europarl_train_trim
-     < training_tgt=$tgt_out@europarl_train_trim
-     < training_monolingual_tgt=$tgt_out@europarl_train_trim
-     < tuning_src=$src_out@europarl_dev_trim
-     < tuning_tgt=$tgt_out@europarl_dev_trim
-     < test_src=$src_out@europarl_devtest_trim
-     < test_tgt=$tgt_out@europarl_devtest_trim
-     > config
+#task moses_ems calls ems
+#     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+#     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+#     :: moses_dir=/opt/moses
+#     :: external_bin_dir=/opt/moses/external
+#     :: max_sentence_length=80
+#     :: ngram_order=5
+#     :: decoder_cores=8
+#     < training_src=$src_out@europarl_train_trim
+#     < training_tgt=$tgt_out@europarl_train_trim
+#     < training_monolingual_tgt=$tgt_out@europarl_train_trim
+#     < tuning_src=$src_out@europarl_dev_trim
+#     < tuning_tgt=$tgt_out@europarl_dev_trim
+#     < test_src=$src_out@europarl_devtest_trim
+#     < test_tgt=$tgt_out@europarl_devtest_trim
+#     > config
 #
 task europarl_monolingual_tokenize calls moses_tokenize
      :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
@@ -419,6 +428,7 @@ task moses_tuning_mert calls moses_mert
      :: moses_scripts_dir=@
      :: moses_bin_dir=@
      :: moses_mert_max_iterations=@
+     :: moses_mert_tuning_replicate=@
      > moses_tuned_ini
 #
 task moses_tuning_weights calls moses_mert_substitute_weights
@@ -512,7 +522,18 @@ plan {
 #
 #	reach moses_tuning_weights via (src: fr) * (tgt: en)
 #	reach moses_devtest_ini via (src: fr) * (tgt: en)
-	reach moses_devtest_multibleu via (src: fr) * (tgt: en) * (MonolingualSize: all) * (TrainingSize: 10k) * (DevSize: 100) * (DevtestSize: 100)
+#	reach moses_devtest_multibleu via (src: fr) * (tgt: en) * (MonolingualSize: all) * (TrainingSize: 10k) * (DevSize: 100) * (DevtestSize: 100)
+
+     reach moses_devtest_multibleu via 
+     	   (src: bg cs da de el    es et fi fr hu it lt lv nl pl pt ro sk sl sv) * 
+	   (tgt: en) * 
+	   (MonolingualSize: all) * 
+	   (TrainingSize: 10k) * 
+	   (DevSize: 100) * 
+	   (DevtestSize: 100) *
+	   (TuningMaxIterations: 4) *
+	   (TuningReplicate: 1)
+
 #	reach kenlm via (tgt: fr) * (MonolingualSize: 100)
 #       reach configure_ems via (src: fr) * (tgt: en)
 

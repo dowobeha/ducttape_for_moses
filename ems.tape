@@ -4,7 +4,11 @@ func moses_tokenize
       < in
       > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${moses_tokenizer} -a -l ${language} < ${in} > ${out}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func moses_clean_corpus
@@ -19,6 +23,8 @@ func moses_clean_corpus
       > src_out
       > tgt_out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	ln -s ${src_in} in.${src_lang}
 	ln -s ${tgt_in} in.${tgt_lang}
 
@@ -26,6 +32,8 @@ func moses_clean_corpus
 
 	ln out.${src_lang} ${src_out}
 	ln out.${tgt_lang} ${tgt_out}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func moses_prepare_data
@@ -48,6 +56,7 @@ func moses_prepare_data
      > e2f_snt
      > f2e_snt
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 
 	ln -s ${src_in} in.${src_lang}
 	ln -s ${tgt_in} in.${tgt_lang}
@@ -74,6 +83,7 @@ func moses_prepare_data
 	ln -s out/${tgt_lang}-${src_lang}-int-train.snt ${e2f_snt}
 	ln -s out/${src_lang}-${tgt_lang}-int-train.snt ${f2e_snt}
 
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func moses_run_giza
@@ -95,6 +105,8 @@ func moses_run_giza
      < f2e_snt
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	mkdir in
 	ln -s ${src_vcb} in/${src_lang}.vcb
 	ln -s ${tgt_vcb} in/${tgt_lang}.vcb
@@ -120,6 +132,8 @@ func moses_run_giza
 				-corpus-dir in	\
 				-giza-e2f ${out}	\
 				-direction 2
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func moses_run_giza_inverse
@@ -141,6 +155,8 @@ func moses_run_giza_inverse
      < f2e_snt
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	mkdir in
 	ln -s ${src_vcb} in/${src_lang}.vcb
 	ln -s ${tgt_vcb} in/${tgt_lang}.vcb
@@ -166,6 +182,8 @@ func moses_run_giza_inverse
 				-corpus-dir in	\
 				-giza-f2e ${out}	\
 				-direction 1
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func moses_symmetrize_giza
@@ -182,6 +200,8 @@ func moses_symmetrize_giza
      > alignment_file
      > alignment_stem
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${moses_train_modeler}	-dont-zip	\
 				-first-step 3	\
 				-last-step 3	\
@@ -198,6 +218,8 @@ func moses_symmetrize_giza
 				-alignment-file ${alignment_file} \
 				-alignment-stem ${alignment_stem} \
 				-alignment ${alignment_symmetrization_method}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func mkcls
@@ -207,11 +229,15 @@ func mkcls
      :: num_optimization_runs
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${mkcls} -c${num_classes} \
 	         -n${num_optimization_runs} \
 		 -p${in} \
 		 -V${out} \
 		 opt
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func ems
@@ -231,6 +257,8 @@ func ems
      < test_tgt
      > config
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	training_stem='training'
 	ln -s ${training_src} ${training_stem}.${src_lang}
 	ln -s ${training_tgt} ${training_stem}.${tgt_lang}
@@ -355,4 +383,5 @@ func ems
 
 	${moses_dir}/scripts/ems/experiment.perl -config ${config}
 
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }

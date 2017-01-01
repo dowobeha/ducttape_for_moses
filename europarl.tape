@@ -18,7 +18,7 @@ func extract_europarl
       > test_src
       > test_tgt
 {
-	date +"Begin %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 
 	# Extract tools to sentence-align the parallel corpus
 	#
@@ -129,8 +129,7 @@ func extract_europarl
 	date +"Remove aligned/ %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
 	rm -rf aligned
 
-	date +"End %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
-
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 
@@ -145,7 +144,7 @@ func extract_europarl_monolingual
      :: tgt_lang
       > tgt
 {
-	date +"Begin %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 
 	# Extract tools to sentence-align the parallel corpus
 	#
@@ -184,7 +183,6 @@ func extract_europarl_monolingual
 	date +"Remove txt/ %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
 	rm -rf txt
 
-	date +"End %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
-
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 

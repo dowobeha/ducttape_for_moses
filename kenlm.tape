@@ -6,6 +6,7 @@ func lmplz
      :: max_sorting_memory
      :: tmp_dir
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 
 	set -o xtrace
 
@@ -17,6 +18,7 @@ func lmplz
 	   --temp_prefix ${tmp_dir}       \
 	   --memory ${max_sorting_memory} \
 
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 
@@ -25,5 +27,9 @@ func build_binary
      < arpa_file
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${build_binary} ${arpa_file} ${out}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }

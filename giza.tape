@@ -3,6 +3,8 @@ func mkcls
      < in
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	num_classes=50
 	num_optimization_runs=2
 
@@ -11,6 +13,8 @@ func mkcls
 		 -p${in} \
 		 -V${out} \
 		 opt
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func plain2snt
@@ -22,12 +26,16 @@ func plain2snt
      > tgt_vcb
      > tgt_snt
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${plain2snt} ${src_in}        \
 	             ${tgt_in}        \
 	             -vcb1 ${src_vcb} \
 		     -snt1 ${src_snt} \
 		     -vcb2 ${tgt_vcb} \
 		     -snt2 ${tgt_snt}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func snt2cooc
@@ -37,7 +45,11 @@ func snt2cooc
      < integerized_bitext
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${snt2cooc} ${out} ${src_vcb} ${tgt_vcb} ${integerized_bitext}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func mgiza
@@ -52,6 +64,8 @@ func mgiza
      :: num_cpus
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${mgiza} -CoocurrenceFile ${coocurrence_file}        \
 	         -c ${integerized_bitext}                    \
 		 -model1iterations 5                         \
@@ -76,6 +90,7 @@ func mgiza
 
 	${merge_alignment_script} out.A3.final.part* > ${out}
 
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
 
 func mgiza_symmetrize
@@ -85,7 +100,11 @@ func mgiza_symmetrize
      < mgiza_reverse_alignments
      > out
 {
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
+
 	${giza2bal} -d ${mgiza_forward_alignments} -i ${mgiza_reverse_alignments} | \
 	${symal} -alignment="grow" -diagonal="yes" -final="yes" -both="yes"       | \
 	sed 's,.*{##} ,,' > ${out}
+
+	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tEnd task"
 }
