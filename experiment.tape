@@ -85,29 +85,28 @@ task europarl_tarball calls symlink < in="/nas/data/parallel/training/tarball/eu
 import europarl.tape
 #
 # Download Europarl sentence aligner 
-task europarl_tarball_sentence_aligner calls download
-    :: url="http://www.statmt.org/europarl/v7/tools.tgz"
-    :: downloader="wget"
-    :: downloader_flags=""
-     > out="tools.tgz"
+#task europarl_tarball_sentence_aligner calls download
+#    :: url="http://www.statmt.org/europarl/v7/tools.tgz"
+#    :: downloader="wget"
+#    :: downloader_flags=""
+#     > out="tools.tgz"
 #
 # Download nonbreaking prefixes
-task moses_nonbreaking_prefixes calls download
-    :: url="http://www.statmt.org/moses/RELEASE-3.0/binaries/linux-64bit/scripts/share/nonbreaking_prefixes/"
-    :: downloader="wget"
-    :: downloader_flags="--recursive --no-parent --no-host-directories --no-directories"
-     > out="."
+#task moses_nonbreaking_prefixes calls download
+#    :: url="http://www.statmt.org/moses/RELEASE-3.0/binaries/linux-64bit/scripts/share/nonbreaking_prefixes/"
+#    :: downloader="wget"
+#    :: downloader_flags="--recursive --no-parent --no-host-directories --no-directories"
+#     > out="."
 #
 # Extract and align Europarl training, dev, devtest, and test data
 task europarl_sentence_aligned calls extract_europarl
      < tarball=$out@europarl_tarball
-     < tools_tarball=$out@europarl_tarball_sentence_aligner
-     < nonbreaking_prefixes=$out@moses_nonbreaking_prefixes
     :: src_lang=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: dev=$europarl_dev
     :: devtest=$europarl_devtest
     :: test=$europarl_test
+    :: num_threads=8
      > train_src
      > train_tgt
      > dev_src
@@ -120,8 +119,6 @@ task europarl_sentence_aligned calls extract_europarl
 # Extract Europarl monolingual training data
 task europarl_monolingual_data calls extract_europarl_monolingual
      < tarball=$out@europarl_tarball
-     < tools_tarball=$out@europarl_tarball_sentence_aligner
-     < nonbreaking_prefixes=$out@moses_nonbreaking_prefixes
     :: tgt_lang=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
     :: dev=$europarl_dev
     :: devtest=$europarl_devtest
@@ -524,8 +521,9 @@ plan {
 #	reach moses_devtest_ini via (src: fr) * (tgt: en)
 #	reach moses_devtest_multibleu via (src: fr) * (tgt: en) * (MonolingualSize: all) * (TrainingSize: 10k) * (DevSize: 100) * (DevtestSize: 100)
 
+#     	   (src: bg cs da de el    es et fi fr hu it lt lv nl pl pt ro sk sl sv) * 
      reach moses_devtest_multibleu via 
-     	   (src: bg cs da de el    es et fi fr hu it lt lv nl pl pt ro sk sl sv) * 
+           (src: fr) *
 	   (tgt: en) * 
 	   (MonolingualSize: all) * 
 	   (TrainingSize: 10k) * 

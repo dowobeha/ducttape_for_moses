@@ -2,13 +2,12 @@
 
 func extract_europarl
      < tarball
-     < tools_tarball
-     < nonbreaking_prefixes
      :: src_lang
      :: tgt_lang
      :: dev
      :: devtest
      :: test
+     :: num_threads
       > train_src
       > train_tgt
       > dev_src
@@ -20,31 +19,12 @@ func extract_europarl
 {
 	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 
-	# Extract tools to sentence-align the parallel corpus
+	# Get tools to sentence-align the parallel corpus
 	#
-	tar --extract --verbose --gzip --file=${tools_tarball} sentence-align-corpus.perl tools/split-sentences.perl
-	
-	# Sentence alignment requires a list of non-breaking prefixes for each language.
-	#
-	mkdir tools/nonbreaking_prefixes
+	git clone https://github.com/dowobeha/europarl_tools.git
 
-	if [ -f "${nonbreaking_prefixes}/nonbreaking_prefix.${src_lang}" ] ; then
-		cp --verbose "${nonbreaking_prefixes}/nonbreaking_prefix.${src_lang}" "tools/nonbreaking_prefixes"
-	fi
-
-	if [ -f "${nonbreaking_prefixes}/nonbreaking_prefix.${tgt_lang}" ] ; then
-		cp --verbose "${nonbreaking_prefixes}/nonbreaking_prefix.${tgt_lang}" "tools/nonbreaking_prefixes"
-	fi
-
-	# If the non-breaking prefixes for a language doesn't exist,
-	#    the tool falls back to the list of English non-breaking prefixes.
-	#
-	if [ ! -f "tools/nonbreaking_prefixes.en" ] && [ -f "${nonbreaking_prefixes}/nonbreaking_prefix.en" ]; then
-
-	   # So, if we don't already have the list of English non-breaking prefixes, get it too
-	   cp --verbose "${nonbreaking_prefixes}/nonbreaking_prefix.en" "tools/nonbreaking_prefixes"
-
-	fi
+	mv europarl_tools/sentence-align-corpus.perl .
+	mv europarl_tools/tools .
 
 	# Extract the raw data for the source and target languages
 	#
@@ -86,13 +66,13 @@ func extract_europarl
 	    # sentence-align-corpus.perl performs chdir($Bin), so it needs to be located in the same dir as txt
 	    ln --verbose $(pwd)/sentence-align-corpus.perl $(pwd)/${d}/sentence-align-corpus.perl
 	    ln --verbose -s $(pwd)/tools $(pwd)/${d}/
-	    (cd ${d} && ./sentence-align-corpus.perl ${src_lang} ${tgt_lang})
+	    (cd ${d} && ./sentence-align-corpus.perl ${src_lang} ${tgt_lang} ${num_threads})
 
 	done
 	
 	# Sentence align the training data
 	date +"Sentence aligning training data for ${src_lang}-${tgt_lang} %Y-%m-%d %H:%M:%S.%m %z" # Print timestamp
-	./sentence-align-corpus.perl ${src_lang} ${tgt_lang}
+	./sentence-align-corpus.perl ${src_lang} ${tgt_lang} ${num_threads}
 
 	# Concatenate the sentence-aligned source files into a single file
 	#         and the sentence-aligned target files into a single file.
@@ -136,8 +116,6 @@ func extract_europarl
 
 func extract_europarl_monolingual
      < tarball
-     < tools_tarball
-     < nonbreaking_prefixes
      :: dev
      :: devtest
      :: test
@@ -146,17 +124,9 @@ func extract_europarl_monolingual
 {
 	echo -e "$(date +'%Y-%m-%d %H:%M:%S %Z')\tBegin task"
 
-	# Extract tools to sentence-align the parallel corpus
+	# Get tools to sentence-align the parallel corpus
 	#
-	tar --extract --verbose --gzip --file=${tools_tarball} sentence-align-corpus.perl tools/split-sentences.perl
-	
-	# Sentence alignment requires a list of non-breaking prefixes for each language.
-	#
-	mkdir tools/nonbreaking_prefixes
-
-	if [ -f "${nonbreaking_prefixes}/nonbreaking_prefix.${tgt_lang}" ] ; then
-		cp --verbose "${nonbreaking_prefixes}/nonbreaking_prefix.${tgt_lang}" "tools/nonbreaking_prefixes"
-	fi
+	# git clone https://github.com/dowobeha/europarl_tools.git .	
 
 	# Extract the raw data for the target language
 	#
