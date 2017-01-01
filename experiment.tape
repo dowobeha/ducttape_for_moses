@@ -128,37 +128,46 @@ task europarl_monolingual_data calls extract_europarl_monolingual
      > tgt
 
 
+task europarl_monolingual_trim
+     :: n=(MonolingualSize: 100="-n 100" 1k="-n 1000" 10k="-n 10000" 100k="-n 100000" 1000k="-n 1000000" all="-n -0")
+     < tgt_in=$tgt@europarl_monolingual_data
+     > tgt_out
+{
+	head ${n} < ${src_in} > ${src_out}
+	head ${n} < ${tgt_in} > ${tgt_out}
+}
+#
 task europarl_train_trim
-     :: n=10000
+     :: n=(TrainingSize: 100="-n 100" 1k="-n 1000" 10k="-n 10000" 100k="-n 100000" 1000k="-n 1000000" all="-n -0")
      < src_in=$train_src@europarl_sentence_aligned
      < tgt_in=$train_tgt@europarl_sentence_aligned
      > src_out
      > tgt_out
 {
-	head -n ${n} < ${src_in} > ${src_out}
-	head -n ${n} < ${tgt_in} > ${tgt_out}
+	head ${n} < ${src_in} > ${src_out}
+	head ${n} < ${tgt_in} > ${tgt_out}
 }
 #
 task europarl_dev_trim
-     :: n=100
+     :: n=(DevSize: 100="-n 100" 1k="-n 1000" all="-n -0")
      < src_in=$dev_src@europarl_sentence_aligned
      < tgt_in=$dev_tgt@europarl_sentence_aligned
      > src_out
      > tgt_out
 {
-	head -n ${n} < ${src_in} > ${src_out}
-	head -n ${n} < ${tgt_in} > ${tgt_out}
+	head ${n} < ${src_in} > ${src_out}
+	head ${n} < ${tgt_in} > ${tgt_out}
 }
 #
 task europarl_devtest_trim
-     :: n=100
+     :: n=(DevtestSize: 100="-n 100" 1k="-n 1000" all="-n -0")
      < src_in=$devtest_src@europarl_sentence_aligned
      < tgt_in=$devtest_tgt@europarl_sentence_aligned
      > src_out
      > tgt_out
 {
-	head -n ${n} < ${src_in} > ${src_out}
-	head -n ${n} < ${tgt_in} > ${tgt_out}
+	head ${n} < ${src_in} > ${src_out}
+	head ${n} < ${tgt_in} > ${tgt_out}
 }
 
 
@@ -183,7 +192,12 @@ task moses_ems calls ems
      < test_tgt=$tgt_out@europarl_devtest_trim
      > config
 #
-#      
+task europarl_monolingual_tokenize calls moses_tokenize
+     :: language=(tgt: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
+      < moses_tokenizer=@
+      < in=$tgt_out@europarl_monolingual_trim
+      > out
+#
 task europarl_train_tokenize_src calls moses_tokenize
      :: language=(src: bg cs da de el en es et fi fr hu it lt lv nl pl pt ro sk sl sv)
       < moses_tokenizer=@
@@ -446,7 +460,7 @@ import kenlm.tape
 #
 task kenlm calls lmplz
      < lmplz=@
-     < corpus=$out@europarl_train_tokenize_tgt
+     < corpus=$out@europarl_monolingual_tokenize
      :: max_ngram_order=@
      > arpa_file
      :: max_sorting_memory="20%"
@@ -499,8 +513,8 @@ plan {
 #
 #	reach moses_tuning_weights via (src: fr) * (tgt: en)
 #	reach moses_devtest_ini via (src: fr) * (tgt: en)
-	reach moses_devtest_multibleu via (src: fr) * (tgt: en)
-	 
+#	reach moses_devtest_multibleu via (src: fr) * (tgt: en)
+	reach kenlm via (tgt: fr) * (MonolingualSize: 100)
 #       reach configure_ems via (src: fr) * (tgt: en)
 
 #      reach symmetrize_giza via (src: fr) * (tgt: en)
